@@ -140,8 +140,6 @@
                         <option value="">-- 월 선택 --</option>
                     </select>
                 </div>
-                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📁 파일</button>
-                <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
                 <div class="status-badge" id="status">준비</div>
             </div>
         </div>
@@ -1098,6 +1096,76 @@
             i6.push(`<li><span class="label">판관비율:</span> ${sRate.toFixed(1)}% (목표: 20-30%)</li>`);
             i6.push(`<li><span class="label">YTD 순이익:</span> ${((y.revenue - y.cogs - y.sga)/1000000).toFixed(1)}M</li>`);
             document.getElementById('insight-decision').innerHTML = i6.join('');
+        }
+
+        // ===============================================
+        // GitHub에서 자동으로 CSV 파일을 로드하는 함수
+        // ===============================================
+        async function loadDataFromGitHub() {
+            try {
+                document.getElementById('status').textContent = '데이터 로드 중...';
+                
+                // GitHub의 raw CSV 파일 URL
+                const csvUrl = 'https://raw.githubusercontent.com/hyunji-beep/EN_Dashboard/main/data/계정별원장.csv';
+                
+                const response = await fetch(csvUrl);
+                if (!response.ok) {
+                    document.getElementById('status').textContent = '데이터 로드 실패';
+                    console.error('GitHub에서 CSV 파일을 불러오지 못했습니다:', response.status);
+                    return;
+                }
+                
+                const csvText = await response.text();
+                
+                // CSV 파싱 - handleCSVUpload 함수와 같은 로직
+                parseAndProcessCSV(csvText);
+                
+                document.getElementById('status').textContent = 'GitHub 데이터 로드 완료';
+                
+            } catch (error) {
+                document.getElementById('status').textContent = '데이터 로드 실패';
+                console.error('GitHub 데이터 로드 중 오류 발생:', error);
+            }
+        }
+
+        // CSV를 파싱하고 처리하는 함수
+        function parseAndProcessCSV(csvText) {
+            try {
+                const rows = csvText.trim().split('\n');
+                if (rows.length < 2) {
+                    console.error('CSV 파일이 비어있습니다');
+                    return;
+                }
+                
+                const headers = rows[0].split(',').map(h => h.trim());
+                const data = [];
+                
+                for (let i = 1; i < rows.length; i++) {
+                    if (rows[i].trim() === '') continue;
+                    
+                    const values = rows[i].split(',').map(v => v.trim());
+                    const row = {};
+                    
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                    });
+                    
+                    data.push(row);
+                }
+                
+                // processAccountData 함수 호출 (기존 데이터 처리 함수)
+                processAccountData(data);
+                
+            } catch (error) {
+                console.error('CSV 파싱 중 오류:', error);
+                document.getElementById('status').textContent = 'CSV 형식 오류';
+            }
+        }
+
+        // 페이지 로드 시 자동으로 GitHub 데이터 로드
+        window.addEventListener('load', function() {
+            loadDataFromGitHub();
+        });
         }
     </script>
 </body>
