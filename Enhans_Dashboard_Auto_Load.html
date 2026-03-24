@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhans 손익 대시보드</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/plugins/datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #2c2c2c; }
+        
+        .container { max-width: 1920px; margin: 0 auto; background: white; min-height: 100vh; }
+        
+        .header { background: white; color: #112550; padding: 12px 40px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .logo { width: 50px; height: 50px; border-radius: 8px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+        .logo img { width: 100%; height: 100%; object-fit: contain; }
+        .header-title h1 { font-size: 20px; font-weight: 700; color: #112550; }
+        .header-title p { font-size: 12px; color: #666; margin-top: 2px; }
+        .unit-badge { font-size: 12px; color: #666; padding: 0; background: transparent; }
+        
+        .header-right { display: flex; gap: 20px; align-items: center; }
+        .month-selector { display: flex; gap: 10px; align-items: center; }
+        .month-selector label { font-weight: 600; font-size: 14px; color: #112550; }
+        .month-selector select { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 4px; background: white; color: #112550; font-weight: 600; cursor: pointer; }
+        
+        .upload-btn { padding: 10px 20px; background: #f0f0f0; color: #666; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.2s; }
+        .upload-btn:hover { background: #e8e8e8; color: #333; }
+        .status-badge { padding: 8px 16px; background: #f0f0f0; border: 1px solid #e0e0e0; border-radius: 20px; font-size: 12px; color: #666; font-weight: 500; }
+        
+        input[type="file"] { display: none; }
+        
+        .main-content { padding: 40px; }
+        
+        .section { margin-bottom: 50px; }
+        .section-title { font-size: 16px; font-weight: 700; color: #112550; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 3px solid #c8916b; }
+        
+        .kpi-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+        .kpi-card { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .kpi-label { font-size: 12px; color: #666; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; }
+        .kpi-value { font-size: 32px; font-weight: 700; color: #112550; margin-bottom: 8px; }
+        .kpi-change { font-size: 13px; font-weight: 600; }
+        .kpi-change.positive { color: #2e7d32; }
+        .kpi-change.negative { color: #d32f2f; }
+        
+        .income-statement { background: white; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .income-statement table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .income-statement thead { background: #f9f9f9; border-bottom: 2px solid #112550; }
+        .income-statement th { padding: 14px; text-align: right; font-weight: 700; color: #112550; }
+        .income-statement th:first-child { text-align: left; }
+        .income-statement td { padding: 12px 14px; text-align: right; border-bottom: 1px solid #f0f0f0; }
+        .income-statement td:first-child { text-align: left; }
+        
+        .item-main { font-weight: 700; color: #112550; background: #f9f9f9; }
+        .item-sub { padding-left: 40px; color: #555; font-weight: 500; }
+        .item-total { background: #f0f0f0; font-weight: 700; color: #112550; border-top: 2px solid #112550; }
+        
+        .positive { color: #2e7d32; font-weight: 600; }
+        .negative { color: #d32f2f; font-weight: 600; }
+        
+        .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+        .chart-box { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .chart-title { font-size: 14px; font-weight: 700; color: #112550; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #c8916b; }
+        .chart-wrapper { position: relative; height: 300px; }
+        .chart-wrapper.tall { height: 380px; }
+        
+        .customer-section { background: white; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .customer-header { padding: 24px; border-bottom: 1px solid #e0e0e0; background: #f9f9f9; }
+        .customer-header-title { font-size: 13px; font-weight: 700; color: #112550; margin-bottom: 16px; }
+        .customer-ratios { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+        .ratio-item { text-align: center; }
+        .ratio-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+        .ratio-value { font-size: 18px; font-weight: 700; color: #c8916b; }
+        
+        .customer-table { margin: 0; }
+        .customer-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .customer-table th { padding: 12px 14px; text-align: left; font-weight: 700; color: #112550; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; }
+        .customer-table td { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+        .customer-table tr:nth-child(odd) { background: #fcfcfc; }
+        .customer-table tr:nth-child(even) { background: #f3f8fb; }
+        .cust-rank { text-align: center; font-weight: 700; color: #112550; width: 50px; }
+        .cust-amount { text-align: right; font-weight: 600; color: #112550; }
+        .cust-ratio { text-align: right; font-weight: 700; color: #c8916b; }
+        
+        .cost-detail { background: white; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .cost-detail-title { font-size: 13px; font-weight: 700; color: #112550; padding: 14px 16px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; }
+        .cost-detail table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+        .cost-detail th { padding: 12px 12px; text-align: center; font-weight: 700; color: #112550; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; }
+        .cost-detail th:first-child { text-align: left; }
+        .cost-detail td { padding: 14px 12px; border-bottom: 1px solid #f0f0f0; word-break: break-word; }
+        .cost-detail tr:nth-child(odd) { background: #fcfcfc; }
+        .cost-detail tr:nth-child(even) { background: #f3f8fb; }
+        .cost-name { font-weight: 700; color: #112550; width: 20%; text-align: left; }
+        .cost-amount { text-align: right; color: #333; width: 15%; }
+        .cost-change { text-align: right; font-weight: 600; width: 20%; }
+        .cost-reason { color: #555; font-size: 12px; line-height: 1.6; width: 45%; text-align: left; white-space: normal; }
+        
+        .insight-section { background: linear-gradient(135deg, #fff9e6 0%, #fffdf0 100%); border: 2px solid #c8916b; border-radius: 8px; padding: 30px; margin-top: 40px; }
+        .insight-title { font-size: 15px; font-weight: 700; color: #112550; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #c8916b; }
+        
+        .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .insight-box { background: white; border: 1px solid #e0e0e0; border-left: 4px solid #c8916b; padding: 20px; border-radius: 4px; }
+        .insight-box h4 { font-size: 12px; font-weight: 700; color: #c8916b; margin-bottom: 16px; text-transform: uppercase; }
+        .insight-box ul { margin: 0; padding: 0; list-style: none; }
+        .insight-box li { font-size: 13px; color: #333; line-height: 1.8; margin-bottom: 10px; }
+        .insight-box strong { color: #112550; font-weight: 700; }
+        .insight-box .label { color: #666; font-size: 12px; }
+        .insight-box .value { color: #112550; font-weight: 700; font-size: 14px; }
+        .insight-box .positive { color: #2e7d32; font-weight: 600; }
+        .insight-box .negative { color: #d32f2f; font-weight: 600; }
+        
+        .empty-state { padding: 40px 20px; text-align: center; color: #999; font-size: 14px; }
+        
+        @media (max-width: 1200px) {
+            .chart-grid-2 { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+            .insight-grid { grid-template-columns: 1fr; }
+            .customer-ratios { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <img src="data:image/jpeg;base64,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" alt="Enhans Logo">
+                </div>
+                <div class="header-title">
+                    <h1>Enhans 손익 대시보드</h1>
+                    <p class="unit-badge">단위: 백만원(M)</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="month-selector">
+                    <label>기준월:</label>
+                    <select id="monthSelector" onchange="handleMonthChange()">
+                        <option value="">-- 월 선택 --</option>
+                    </select>
+                </div>
+                <div class="status-badge" id="status">준비</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- KPI -->
+            <div class="section">
+                <div class="section-title">주요 지표</div>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">매출액</div>
+                        <div class="kpi-value" id="kpi-revenue">-</div>
+                        <div class="kpi-change" id="kpi-revenue-change">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">매출총이익</div>
+                        <div class="kpi-value" id="kpi-gross">-</div>
+                        <div class="kpi-change" id="kpi-gross-change">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">판매관리비</div>
+                        <div class="kpi-value" id="kpi-sga">-</div>
+                        <div class="kpi-change" id="kpi-sga-change">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">순이익</div>
+                        <div class="kpi-value" id="kpi-net">-</div>
+                        <div class="kpi-change" id="kpi-net-change">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 손익계산서 -->
+            <div class="section">
+                <div class="section-title">손익계산서</div>
+                <div class="income-statement">
+                    <table id="incomeStatementTable">
+                        <thead>
+                            <tr>
+                                <th>항목</th>
+                                <th id="th-current">당월</th>
+                                <th id="th-prior">전월</th>
+                                <th>월간 변화</th>
+                                <th id="th-ytd">YTD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5"><div class="empty-state">파일을 업로드하세요</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 손익 분석 차트 -->
+            <div class="section">
+                <div class="section-title">손익 분석</div>
+                <div class="chart-grid-2">
+                    <div class="chart-box">
+                        <div class="chart-title">월별 매출 & 순이익</div>
+                        <div class="chart-wrapper"><canvas id="revenueChart"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <div class="chart-title">월별 이익률</div>
+                        <div class="chart-wrapper"><canvas id="profitMarginChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 서비스매출 분석 -->
+            <div class="section">
+                <div class="section-title">서비스매출 분석</div>
+                
+                <div class="customer-section">
+                    <div class="customer-header">
+                        <div class="customer-header-title">📌 상위 거래처 매출 비중</div>
+                        <div class="customer-ratios" id="customerRatios"></div>
+                    </div>
+                    <div class="customer-table">
+                        <table id="customerTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">순위</th>
+                                    <th>거래처명</th>
+                                    <th style="width: 80px;">금액(M)</th>
+                                    <th style="width: 80px;">비중(%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="4"><div class="empty-state">파일을 업로드하세요</div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="chart-grid-2">
+                    <div class="chart-box">
+                        <div class="chart-title">월별 서비스매출 추이</div>
+                        <div class="chart-wrapper"><canvas id="serviceRevenueChart"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <div class="chart-title">상위 거래처 매출 비중</div>
+                        <div class="chart-wrapper"><canvas id="customerRevenueChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 비용 분석 -->
+            <div class="section">
+                <div class="section-title">비용 분석</div>
+
+                <div class="cost-detail">
+                    <div class="cost-detail-title">📌 주요 비용항목 변화 분석</div>
+                    <table id="costDetailTable">
+                        <thead>
+                            <tr>
+                                <th>항목</th>
+                                <th>당월(M)</th>
+                                <th>전월(M)</th>
+                                <th>변화</th>
+                                <th>변화 분석</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5"><div class="empty-state">파일을 업로드하세요</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="chart-grid-2">
+                    <div class="chart-box">
+                        <div class="chart-title">손익분기점 도달 예상 매출액</div>
+                        <div class="chart-wrapper tall"><canvas id="bepChart"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <div class="chart-title">원가율 & 판관비율</div>
+                        <div class="chart-wrapper"><canvas id="costRatioChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 인사이트 -->
+            <div class="section">
+                <div class="insight-section">
+                    <div class="insight-title">월별 인사이트</div>
+                    <div class="insight-grid">
+                        <div class="insight-box">
+                            <h4>📊 경영 현황</h4>
+                            <ul id="insight-current"></ul>
+                        </div>
+                        <div class="insight-box">
+                            <h4>💰 비용 현황</h4>
+                            <ul id="insight-cost-breakdown"></ul>
+                        </div>
+                        <div class="insight-box">
+                            <h4>🔍 주요 비용 변화</h4>
+                            <ul id="insight-cost-change"></ul>
+                        </div>
+                        <div class="insight-box">
+                            <h4>🎯 액션 플랜</h4>
+                            <ul id="insight-strategy"></ul>
+                        </div>
+                        <div class="insight-box">
+                            <h4>🚀 손익분기점 예측</h4>
+                            <ul id="insight-breakeven"></ul>
+                        </div>
+                        <div class="insight-box">
+                            <h4>📈 의사결정</h4>
+                            <ul id="insight-decision"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let monthlyData = {};
+        let serviceRevenueData = {};
+        let customerRevenueData = {};
+        let accountDetailData = {};
+        let allMonths = [];
+        let selectedMonth = null;
+
+        Chart.register(ChartDataLabels);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const status = document.getElementById('status');
+            status.textContent = '처리중';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    if (!rawData || rawData.length < 2) throw new Error('데이터 없음');
+
+                    monthlyData = {};
+                    serviceRevenueData = {};
+                    customerRevenueData = {};
+                    accountDetailData = {};
+                    allMonths = [];
+                    
+                    const headers = rawData[0];
+                    const cols = {
+                        acctCode: headers.indexOf('계정코드'),
+                        acctName: headers.indexOf('계정명'),
+                        date: headers.indexOf('날짜'),
+                        memo: headers.indexOf('적요'),
+                        custName: headers.indexOf('거래처명'),
+                        debit: headers.indexOf('차변'),
+                        credit: headers.indexOf('대변'),
+                        dept: headers.indexOf('사용부서명')
+                    };
+
+                    if (cols.acctCode === -1 || cols.date === -1) throw new Error('형식 오류');
+
+                    for (let row = 1; row < rawData.length; row++) {
+                        const acctCode = rawData[row][cols.acctCode];
+                        const acctName = rawData[row][cols.acctName];
+                        const dateVal = rawData[row][cols.date];
+                        const memo = rawData[row][cols.memo] || '';
+                        const custName = rawData[row][cols.custName] || '기타';
+                        const debit = rawData[row][cols.debit] || 0;
+                        const credit = rawData[row][cols.credit] || 0;
+                        const dept = rawData[row][cols.dept] || '';
+
+                        if (!acctCode || !dateVal) continue;
+
+                        let monthKey = null;
+                        if (typeof dateVal === 'string') {
+                            const match = dateVal.match(/(\d{4})-(\d{2})/);
+                            if (match) monthKey = `${match[1]}-${match[2]}`;
+                        }
+
+                        if (!monthKey) continue;
+
+                        if (!allMonths.includes(monthKey)) allMonths.push(monthKey);
+
+                        if (!monthlyData[monthKey]) {
+                            monthlyData[monthKey] = { revenue: 0, cogs: 0, sga: 0, service: 0 };
+                            serviceRevenueData[monthKey] = 0;
+                            customerRevenueData[monthKey] = {};
+                            accountDetailData[monthKey] = {};
+                        }
+
+                        const acctNum = parseInt(String(acctCode).substring(0, 4));
+
+                        if (acctNum === 4020) {
+                            const amt = typeof credit === 'number' ? credit : 0;
+                            monthlyData[monthKey].revenue += amt;
+                            monthlyData[monthKey].service += amt;
+                            serviceRevenueData[monthKey] += amt;
+                            
+                            const cust = custName.trim() || '기타';
+                            customerRevenueData[monthKey][cust] = (customerRevenueData[monthKey][cust] || 0) + amt;
+                        }
+                        else if (acctNum === 4010) {
+                            monthlyData[monthKey].revenue += typeof credit === 'number' ? credit : 0;
+                        }
+                        else if (5000 <= acctNum && acctNum <= 5999) {
+                            monthlyData[monthKey].cogs += typeof debit === 'number' ? debit : 0;
+                        }
+                        else if (6000 <= acctNum && acctNum <= 8999) {
+                            const amt = typeof debit === 'number' ? debit : 0;
+                            monthlyData[monthKey].sga += amt;
+                            
+                            const key = acctName || acctCode;
+                            if (!accountDetailData[monthKey][key]) {
+                                accountDetailData[monthKey][key] = { 
+                                    amount: 0, 
+                                    memo: memo, 
+                                    department: dept,
+                                    platforms: {}  // 채용수수료용 플랫폼별 정보
+                                };
+                            } else {
+                                accountDetailData[monthKey][key].memo += ' / ' + memo;
+                            }
+                            accountDetailData[monthKey][key].amount += amt;
+                            
+                            // 채용수수료인 경우 플랫폼별 금액 기록
+                            if (acctName && acctName.includes('채용수수료')) {
+                                const platformName = extractPlatformName(memo);
+                                if (!accountDetailData[monthKey][key].platforms[platformName]) {
+                                    accountDetailData[monthKey][key].platforms[platformName] = 0;
+                                }
+                                accountDetailData[monthKey][key].platforms[platformName] += amt;
+                            }
+                        }
+                    }
+
+                    allMonths.sort();
+                    if (Object.keys(monthlyData).length === 0) throw new Error('손익 데이터 없음');
+
+                    updateMonthSelector();
+                    status.textContent = '완료';
+                    status.style.background = '#e8f5e9';
+                    status.style.color = '#2e7d32';
+                    
+                } catch (error) {
+                    status.textContent = '오류';
+                    status.style.background = '#ffebee';
+                    status.style.color = '#d32f2f';
+                    alert('파일 처리 오류:\n' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updateMonthSelector() {
+            const selector = document.getElementById('monthSelector');
+            while (selector.options.length > 1) selector.remove(1);
+
+            const sorted = [...allMonths].sort().reverse();
+            sorted.forEach(month => {
+                const opt = document.createElement('option');
+                opt.value = month;
+                const [y, m] = month.split('-');
+                opt.text = `${y}년 ${parseInt(m)}월`;
+                selector.appendChild(opt);
+            });
+
+            if (sorted.length > 0) {
+                selector.value = sorted[sorted.length - 1];
+                setTimeout(() => handleMonthChange(), 100);
+            }
+        }
+
+        function handleMonthChange() {
+            selectedMonth = document.getElementById('monthSelector').value;
+            if (!selectedMonth || !monthlyData[selectedMonth]) return;
+            generateDashboard();
+        }
+
+        function getPriorMonth(ym) {
+            const [y, m] = ym.split('-');
+            let month = parseInt(m) - 1, year = parseInt(y);
+            if (month === 0) { month = 12; year--; }
+            return `${year}-${String(month).padStart(2, '0')}`;
+        }
+
+        function getCumulativeData(upToMonth) {
+            const [y, m] = upToMonth.split('-');
+            let cum = { revenue: 0, cogs: 0, sga: 0 };
+            for (const mk of allMonths) {
+                const [my, mm] = mk.split('-');
+                if (my === y && parseInt(mm) <= parseInt(m) && monthlyData[mk]) {
+                    cum.revenue += monthlyData[mk].revenue || 0;
+                    cum.cogs += monthlyData[mk].cogs || 0;
+                    cum.sga += monthlyData[mk].sga || 0;
+                }
+            }
+            return cum;
+        }
+
+        function generateDashboard() {
+            generateIncomeStatement();
+            generateCustomerTable();
+            generateCharts();
+            generateCostDetail();
+            generateKPIs();
+            generateInsights();
+        }
+
+        function generateIncomeStatement() {
+            const curr = monthlyData[selectedMonth] || {};
+            const ytd = getCumulativeData(selectedMonth);
+            const prior = monthlyData[getPriorMonth(selectedMonth)] || {};
+
+            const fmt = (n) => (n / 1000000).toFixed(1);
+            const chg = (c, p) => {
+                if (p === 0) return c > 0 ? '△ ∞' : '0';
+                const pct = ((c - p) / Math.abs(p) * 100).toFixed(0);
+                return (c >= p ? '△' : '▽') + ' ' + pct + '%';
+            };
+            const cls = (v) => v > 0 ? 'positive' : v < 0 ? 'negative' : '';
+
+            const r = curr.revenue || 0, cg = curr.cogs || 0, s = curr.sga || 0;
+            const gp = r - cg, ni = gp - s;
+            const pr = prior.revenue || 0, pcg = prior.cogs || 0, ps = prior.sga || 0;
+            const pgp = pr - pcg, pni = pgp - ps;
+
+            let html = `<tbody>
+                <tr class="item-main">
+                    <td>Ⅰ. 매출액</td>
+                    <td class="${cls(r)}">${fmt(r)}</td>
+                    <td>${fmt(pr)}</td>
+                    <td>${chg(r, pr)}</td>
+                    <td class="${cls(ytd.revenue)}">${fmt(ytd.revenue)}</td>
+                </tr>
+                <tr class="item-sub">
+                    <td>- Ⅱ. 매출원가</td>
+                    <td class="${cls(-cg)}">${fmt(cg)}</td>
+                    <td>${fmt(pcg)}</td>
+                    <td>${chg(cg, pcg)}</td>
+                    <td>${fmt(ytd.cogs)}</td>
+                </tr>
+                <tr class="item-main">
+                    <td>= Ⅲ. 매출총이익</td>
+                    <td class="${cls(gp)}">${fmt(gp)}</td>
+                    <td>${fmt(pgp)}</td>
+                    <td>${chg(gp, pgp)}</td>
+                    <td class="${cls(ytd.revenue - ytd.cogs)}">${fmt(ytd.revenue - ytd.cogs)}</td>
+                </tr>
+                <tr class="item-sub">
+                    <td>- Ⅳ. 판매관리비</td>
+                    <td class="${cls(-s)}">${fmt(s)}</td>
+                    <td>${fmt(ps)}</td>
+                    <td>${chg(s, ps)}</td>
+                    <td>${fmt(ytd.sga)}</td>
+                </tr>
+                <tr class="item-total">
+                    <td>= Ⅴ. 순이익</td>
+                    <td class="${cls(ni)}">${fmt(ni)}</td>
+                    <td>${fmt(pni)}</td>
+                    <td>${chg(ni, pni)}</td>
+                    <td class="${cls(ytd.revenue - ytd.cogs - ytd.sga)}">${fmt(ytd.revenue - ytd.cogs - ytd.sga)}</td>
+                </tr>
+            </tbody>`;
+
+            document.querySelector('#incomeStatementTable tbody').outerHTML = html;
+
+            const [y, m] = selectedMonth.split('-');
+            const [py, pm] = getPriorMonth(selectedMonth).split('-');
+            document.getElementById('th-current').textContent = `${m}월`;
+            document.getElementById('th-prior').textContent = `${pm}월`;
+        }
+
+        function generateCustomerTable() {
+            const custs = customerRevenueData[selectedMonth] || {};
+            const sorted = Object.entries(custs).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const total = sorted.reduce((s, [, a]) => s + a, 0);
+
+            let ratioHtml = '';
+            sorted.forEach(([name, amt], idx) => {
+                const ratio = total > 0 ? (amt / total * 100).toFixed(1) : 0;
+                ratioHtml += `<div class="ratio-item"><div class="ratio-label">${idx + 1}위</div><div class="ratio-value">${ratio}%</div></div>`;
+            });
+            document.getElementById('customerRatios').innerHTML = ratioHtml;
+
+            let tableHtml = '<tbody>';
+            sorted.forEach(([name, amt], idx) => {
+                const ratio = total > 0 ? (amt / total * 100).toFixed(1) : 0;
+                tableHtml += `<tr>
+                    <td class="cust-rank">${idx + 1}</td>
+                    <td>${name}</td>
+                    <td class="cust-amount">${(amt/1000000).toFixed(1)}</td>
+                    <td class="cust-ratio">${ratio}%</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody>';
+            document.querySelector('#customerTable tbody').outerHTML = tableHtml;
+        }
+
+        function generateCostDetail() {
+            const curr = accountDetailData[selectedMonth] || {};
+            const prior = accountDetailData[getPriorMonth(selectedMonth)] || {};
+            const sorted = Object.entries(curr).sort((a, b) => b[1].amount - a[1].amount).slice(0, 5);
+
+            let html = '<tbody>';
+            for (const [name, data] of sorted) {
+                const prevAmt = prior[name]?.amount || 0;
+                const chg = data.amount - prevAmt;
+                const pct = prevAmt > 0 ? ((chg / prevAmt) * 100).toFixed(0) : 0;
+                
+                // 변동 강도 표시
+                let chgIndicator = '';
+                if (Math.abs(pct) >= 50) {
+                    chgIndicator = ' 🔴';
+                } else if (Math.abs(pct) >= 20) {
+                    chgIndicator = ' 🟡';
+                }
+                
+                const chgStr = chg > 0 ? `<span class="negative">▲ ${(Math.abs(chg)/1000000).toFixed(1)}M (+${Math.abs(pct)}%)${chgIndicator}</span>` :
+                               chg < 0 ? `<span class="positive">▼ ${(Math.abs(chg)/1000000).toFixed(1)}M (${pct}%)${chgIndicator}</span>` : '유지';
+                
+                let reason = '';
+                const memo = data.memo || '';
+                const dept = data.department || '';
+                const currentAmount = data.amount;
+                
+                // 현재 금액이 크면 강조
+                let amountHighlight = currentAmount > 500000000 ? ' ⭐' : '';
+                
+                // 계정별원장의 적요를 기반으로 상세 분석
+                if (name.includes('서비스이용료')) {
+                    const serviceInfo = extractServiceInfo(memo);
+                    const serviceNames = serviceInfo.services.join(', ');
+                    
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `<strong>${serviceInfo.category} 비용 ⚠️ 대폭 증가</strong><br><strong>주요 서비스: ${serviceNames}</strong><br>부서: ${dept}<br>전월 대비 +${Math.abs(pct)}% 증가<br>추이 모니터링 필요`;
+                        } else {
+                            reason = `${serviceInfo.category} 서비스 이용료<br><strong>주요 서비스: ${serviceNames}</strong><br>부서: ${dept}<br>클라우드/AI 인프라 확대`;
+                        }
+                    } else if (chg < 0) {
+                        reason = `${serviceInfo.category} 이용료 절감<br><strong>주요 서비스: ${serviceNames}</strong><br>효율화 달성`;
+                    } else {
+                        reason = `${serviceInfo.category} 이용료 유지<br><strong>주요 서비스: ${serviceNames}</strong>`;
+                    }
+                } else if (name.includes('채용수수료')) {
+                    const hiringInfo = extractHiringInfo(memo, dept);
+                    const departmentInfo = hiringInfo.department;
+                    const recruiterInfo = hiringInfo.recruiters.join(', ');
+                    
+                    // 플랫폼별 금액 정보 생성
+                    let platformDetails = '';
+                    if (data.platforms && Object.keys(data.platforms).length > 0) {
+                        const platformList = Object.entries(data.platforms)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([platform, amount]) => `${platform}(${(amount/1000000).toFixed(1)}M)`)
+                            .join(' / ');
+                        platformDetails = `<br><strong>플랫폼 구성:</strong> ${platformList}`;
+                    }
+                    
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `<strong>채용 비용 ⚠️ 대폭 증가</strong><br><strong>채용부서: ${departmentInfo}</strong><br><strong>대상자: ${recruiterInfo}</strong>${platformDetails}<br>전월 대비 +${Math.abs(pct)}% 증가<br>채용 현황 검토 필요`;
+                        } else {
+                            reason = `<strong>채용 플랫폼 이용료</strong><br><strong>채용부서: ${departmentInfo}</strong><br><strong>대상자: ${recruiterInfo}</strong>${platformDetails}<br>채용 활동 진행`;
+                        }
+                    } else if (chg < 0) {
+                        reason = `채용 비용 절감<br><strong>부서: ${departmentInfo}</strong>${platformDetails}<br>채용 완료`;
+                    } else {
+                        reason = `채용 비용 유지<br><strong>부서: ${departmentInfo}</strong>${platformDetails}`;
+                    }
+                } else if (name.includes('급여')) {
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `<strong>급여 비용 ⚠️ 대폭 증가</strong><br>인력 확충/상여금<br>전월 대비 +${Math.abs(pct)}% 증가`;
+                        } else {
+                            reason = `정기 급여 및 성과급 지급<br>복리후생 확충<br>사회보험료 증가`;
+                        }
+                    } else if (chg < 0) {
+                        reason = `급여비용 절감`;
+                    }
+                } else if (name.includes('상여')) {
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `<strong>상여금 지급 📊 대규모</strong><br>정기/성과 상여금<br>전월 대비 +${Math.abs(pct)}% 증가`;
+                        } else {
+                            reason = `정기/성과 상여금 지급<br>인센티브 제도 시행`;
+                        }
+                    } else if (chg < 0) {
+                        reason = `상여금 규모 축소`;
+                    }
+                } else if (name.includes('퇴직')) {
+                    if (chg > 0) {
+                        reason = `<strong>퇴직금 지급 📌 주의</strong><br>퇴직 인원 발생<br>전월 대비 +${Math.abs(pct)}% 증가`;
+                    }
+                } else if (name.includes('여비') || name.includes('교통')) {
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `출장/교통비 ⚠️ 대폭 증가<br>전월 대비 +${Math.abs(pct)}%<br>영업활동 확대`;
+                        } else {
+                            reason = `출장비 및 교통비 증가<br>영업활동 확대`;
+                        }
+                    }
+                } else if (name.includes('광고') || name.includes('홍보')) {
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `마케팅 비용 📈 대폭 증가<br>브랜드 강화사업<br>전월 대비 +${Math.abs(pct)}% 증가`;
+                        } else {
+                            reason = `마케팅 캠페인 확대<br>브랜드 강화사업`;
+                        }
+                    }
+                } else {
+                    if (chg > 0) {
+                        if (Math.abs(pct) >= 20) {
+                            reason = `<strong>${name} ⚠️ 대폭 증가</strong><br>전월 대비 +${Math.abs(pct)}%<br>변동 원인 검토 필요`;
+                        } else {
+                            reason = `${name} 비용 증가<br>영업활동 확대`;
+                        }
+                    } else if (chg < 0) {
+                        reason = `${name} 비용 절감<br>효율성 개선`;
+                    } else {
+                        reason = '변동 없음';
+                    }
+                }
+
+                html += `<tr>
+                    <td class="cost-name">${name}${amountHighlight}</td>
+                    <td class="cost-amount">${(data.amount/1000000).toFixed(1)}</td>
+                    <td class="cost-amount">${(prevAmt/1000000).toFixed(1)}</td>
+                    <td class="cost-change">${chgStr}</td>
+                    <td class="cost-reason">${reason}</td>
+                </tr>`;
+            }
+            html += '</tbody>';
+            document.querySelector('#costDetailTable tbody').outerHTML = html;
+        }
+
+        function extractServiceInfo(memo) {
+            // 적요에서 "_" 뒤의 서비스명 추출
+            const underscoreMatch = memo.match(/_([A-Za-z0-9\s]+)(?:\s|$)/);
+            let serviceFromMemo = underscoreMatch ? underscoreMatch[1].trim() : '';
+            
+            // 2026-02 실제 상위 서비스 (금액 기준)
+            // AWS 71.6M, Open AI 39.1M, Claude 28.8M, Microsoft 21.0M, GPU 8.7M, BrightData 7.1M
+            const mainServices = {
+                'AI 서비스': ['Claude', 'Open AI', 'OPEN AI', 'ChatGPT', 'Gemini'],
+                '클라우드': ['AWS', 'Amazon Web Services', 'Microsoft', 'Azure'],
+                '데이터 서비스': ['BrightData'],
+                '개발도구': ['Atlassian']
+            };
+            
+            let found = [];
+            let category = '기타 서비스';
+            
+            // 1. 적요에서 추출한 서비스명 먼저 확인 (대소문자 구분 안함)
+            if (serviceFromMemo) {
+                for (const [cat, serviceList] of Object.entries(mainServices)) {
+                    for (const service of serviceList) {
+                        if (serviceFromMemo.toUpperCase().includes(service.toUpperCase())) {
+                            found.push(serviceFromMemo);
+                            category = cat;
+                            return { services: [serviceFromMemo], category: category };
+                        }
+                    }
+                }
+            }
+            
+            // 2. 전체 메모에서 주요 서비스명만 찾기
+            for (const [cat, serviceList] of Object.entries(mainServices)) {
+                for (const service of serviceList) {
+                    if (memo && memo.toUpperCase().includes(service.toUpperCase())) {
+                        found.push(service);
+                        category = cat;
+                        if (found.length >= 2) break; // 최대 2개까지만
+                    }
+                }
+                if (found.length >= 2) break;
+            }
+            
+            return {
+                services: found.length > 0 ? found : ['클라우드/AI 서비스'],
+                category: category
+            };
+        }
+
+        function extractPlatformName(memo) {
+            // 채용 플랫폼명 추출
+            if (memo.includes('원티드') || memo.includes('Wanted')) return '원티드';
+            if (memo.includes('엑스퍼트') || memo.includes('익스퍼트') || memo.includes('Expert')) return '엑스퍼트그룹';
+            if (memo.includes('캔디드') || memo.includes('Candid')) return '캔디드';
+            if (memo.includes('리멤버') || memo.includes('Remember')) return '리멤버';
+            if (memo.includes('나인하이어') || memo.includes('ATS')) return 'ATS';
+            return '기타 플랫폼';
+        }
+
+        function extractHiringInfo(memo, dept) {
+            let department = dept || '채용 진행';
+            let recruiters = [];
+            
+            // 한글 이름 추출 (2자 이상)
+            const nameMatches = memo.match(/[가-힣]{2,}/g);
+            if (nameMatches && nameMatches.length > 0) {
+                // 부서명이 포함될 수 있으므로 중복 제거 및 첫 번째 이름만
+                const uniqueNames = [...new Set(nameMatches)];
+                for (const name of uniqueNames) {
+                    // 부서명이 아닌 경우만 추가 (3글자 이하의 일반적인 이름)
+                    if (name.length <= 3 || !name.includes('팀')) {
+                        recruiters.push(name);
+                        if (recruiters.length >= 2) break; // 최대 2명까지
+                    }
+                }
+            }
+            
+            return {
+                department: department,
+                recruiters: recruiters.length > 0 ? recruiters : ['대상자']
+            };
+        }
+
+        function generateKPIs() {
+            const c = monthlyData[selectedMonth] || {};
+            const p = monthlyData[getPriorMonth(selectedMonth)] || {};
+
+            const fmt = (v) => (v / 1000000).toFixed(1);
+            const chg = (cv, pv) => {
+                if (pv === 0) return cv > 0 ? '△ ∞' : '0';
+                const pct = ((cv - pv) / Math.abs(pv) * 100).toFixed(0);
+                return (cv >= pv ? '△' : '▽') + ' ' + Math.abs(pct) + '%';
+            };
+
+            const r = c.revenue || 0, pr = p.revenue || 0;
+            const gp = r - (c.cogs || 0), pgp = pr - (p.cogs || 0);
+            const s = c.sga || 0, ps = p.sga || 0;
+            const ni = gp - s, pni = pgp - ps;
+
+            document.getElementById('kpi-revenue').textContent = fmt(r);
+            document.getElementById('kpi-revenue-change').textContent = chg(r, pr);
+            document.getElementById('kpi-revenue-change').className = 'kpi-change ' + (r >= pr ? 'positive' : 'negative');
+
+            document.getElementById('kpi-gross').textContent = fmt(gp);
+            document.getElementById('kpi-gross-change').textContent = chg(gp, pgp);
+            document.getElementById('kpi-gross-change').className = 'kpi-change ' + (gp >= pgp ? 'positive' : 'negative');
+
+            document.getElementById('kpi-sga').textContent = fmt(s);
+            document.getElementById('kpi-sga-change').textContent = chg(s, ps);
+            document.getElementById('kpi-sga-change').className = 'kpi-change ' + (s <= ps ? 'positive' : 'negative');
+
+            document.getElementById('kpi-net').textContent = fmt(ni);
+            document.getElementById('kpi-net-change').textContent = chg(ni, pni);
+            document.getElementById('kpi-net-change').className = 'kpi-change ' + (ni >= pni ? 'positive' : 'negative');
+        }
+
+        function generateCharts() {
+            try {
+                Object.values(charts).forEach(c => c && c.destroy());
+                charts = {};
+
+                const months = [];
+                const revenues = [], netIncomes = [], profitMargins = [];
+                const cogsRatios = [], sgaRatios = [], serviceRevenues = [];
+
+                for (const mk of allMonths) {
+                    const d = monthlyData[mk];
+                    if (!d) continue;
+
+                    const [y, m] = mk.split('-');
+                    months.push(`${m}월`);
+                    
+                    const r = d.revenue || 0, cg = d.cogs || 0, s = d.sga || 0;
+                    const gp = r - cg, ni = gp - s;
+
+                    revenues.push(r / 1000000);
+                    netIncomes.push(ni / 1000000);
+                    profitMargins.push(r > 0 ? (ni / r * 100).toFixed(1) : 0);
+                    cogsRatios.push(r > 0 ? (cg / r * 100).toFixed(1) : 0);
+                    sgaRatios.push(r > 0 ? (s / r * 100).toFixed(1) : 0);
+                    serviceRevenues.push((d.service || 0) / 1000000);
+                }
+
+                new Chart(document.getElementById('revenueChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            { label: '매출', data: revenues, borderColor: '#112550', backgroundColor: 'rgba(17, 37, 80, 0.1)', tension: 0.4, fill: true, yAxisID: 'y' },
+                            { label: '순이익', data: netIncomes, borderColor: '#c8916b', tension: 0.4, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'top' } }, scales: { y: { position: 'left', beginAtZero: true }, y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } } } }
+                });
+
+                new Chart(document.getElementById('profitMarginChart').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: months,
+                        datasets: [{ label: '이익률(%)', data: profitMargins, backgroundColor: profitMargins.map(v => v >= 0 ? '#2e7d32' : '#d32f2f') }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+                });
+
+                new Chart(document.getElementById('serviceRevenueChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [{ label: '서비스매출', data: serviceRevenues, borderColor: '#112550', backgroundColor: 'rgba(17, 37, 80, 0.1)', tension: 0.4, fill: true }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+                });
+
+                const custs = customerRevenueData[selectedMonth] || {};
+                const sorted = Object.entries(custs).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const cNames = sorted.map(([n]) => n.length > 12 ? n.substring(0, 10) + '..' : n);
+                const cAmts = sorted.map(([, a]) => a / 1000000);
+
+                new Chart(document.getElementById('customerRevenueChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: cNames,
+                        datasets: [{ data: cAmts, backgroundColor: ['#112550', '#1a3a6b', '#284b8f', '#3a5ba3', '#c8916b'] }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, datalabels: { display: true, color: '#fff', font: { weight: 'bold' }, formatter: (v, c) => { const t = c.chart.data.datasets[0].data.reduce((a, b) => a + b, 0); return ((v / t * 100).toFixed(0) + '%'); } } } }
+                });
+
+                const curr = monthlyData[selectedMonth];
+                const r = curr?.revenue || 0, cg = curr?.cogs || 0, s = curr?.sga || 0;
+                const bepRequired = cg + s;
+
+                const avgGrowth = calculateAverageGrowth();
+                const bepData = calculateBEPpath(revenues, bepRequired / 1000000, avgGrowth);
+
+                new Chart(document.getElementById('bepChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [...months, ...bepData.futureLabels],
+                        datasets: [
+                            { 
+                                label: '실제 매출액',
+                                data: [...revenues, ...bepData.futureRevenue],
+                                borderColor: '#112550',
+                                backgroundColor: 'rgba(17, 37, 80, 0.05)',
+                                tension: 0.4,
+                                fill: true,
+                                segment: { borderDash: ctx => ctx.p0DataIndex >= revenues.length - 1 ? [5, 5] : undefined }
+                            },
+                            {
+                                label: '손익분기점 (필요)',
+                                data: Array(months.length + bepData.futureLabels.length).fill(bepRequired / 1000000),
+                                borderColor: '#c8916b',
+                                borderDash: [5, 5],
+                                tension: 0,
+                                fill: false,
+                                pointRadius: 0,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+                });
+
+                new Chart(document.getElementById('costRatioChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            { label: '원가율(%)', data: cogsRatios, borderColor: '#d32f2f', backgroundColor: 'transparent', tension: 0.4, borderWidth: 2, yAxisID: 'y1' },
+                            { label: '판관비율(%)', data: sgaRatios, borderColor: '#2e7d32', backgroundColor: 'transparent', tension: 0.4, borderWidth: 2, yAxisID: 'y' }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, position: 'left', title: { display: true, text: '판관비율(%)' } }, y1: { beginAtZero: true, position: 'right', title: { display: true, text: '원가율(%)' }, grid: { drawOnChartArea: false } } } }
+                });
+
+            } catch (e) {
+                console.error('차트:', e);
+            }
+        }
+
+        function calculateAverageGrowth() {
+            const s = allMonths.slice(-6);
+            let g = 0, c = 0;
+            for (let i = 1; i < s.length; i++) {
+                const cv = monthlyData[s[i]]?.revenue || 0;
+                const pv = monthlyData[s[i-1]]?.revenue || 0;
+                if (pv > 0) { g += (cv - pv) / pv; c++; }
+            }
+            return c > 0 ? g / c : 0;
+        }
+
+        function calculateBEPpath(revenues, bepRequired, avgGrowth) {
+            const lastRev = revenues[revenues.length - 1];
+            const [y, m] = allMonths[allMonths.length - 1].split('-');
+            
+            let futureRev = [], futureLabels = [];
+            let currentRev = lastRev;
+            let currentMonth = parseInt(m), currentYear = parseInt(y);
+
+            for (let i = 0; i < 6; i++) {
+                currentMonth++;
+                if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+                
+                currentRev *= (1 + avgGrowth);
+                futureRev.push(currentRev);
+                futureLabels.push(`${currentMonth}월`);
+                
+                if (currentRev >= bepRequired) {
+                    for (let j = i + 1; j < 5; j++) {
+                        currentMonth++;
+                        if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+                        futureRev.push(currentRev);
+                        futureLabels.push(`${currentMonth}월`);
+                    }
+                    break;
+                }
+            }
+
+            return { futureRevenue: futureRev, futureLabels: futureLabels };
+        }
+
+        function generateInsights() {
+            const c = monthlyData[selectedMonth] || {};
+            const p = monthlyData[getPriorMonth(selectedMonth)] || {};
+            const y = getCumulativeData(selectedMonth);
+
+            const r = c.revenue || 0, cg = c.cogs || 0, s = c.sga || 0;
+            const gp = r - cg, ni = gp - s;
+            const pr = p.revenue || 0, ps = p.sga || 0;
+            const sRate = r > 0 ? (s / r * 100) : 0;
+            const pRate = r > 0 ? (ni / r * 100) : 0;
+            const sRev = c.service || 0;
+            const be = cg + s;
+            const gap = be - r;
+
+            let i1 = [];
+            i1.push(`<li><span class="label">매출:</span> <span class="value">${(r/1000000).toFixed(1)}M</span></li>`);
+            if (r < pr) {
+                const p = ((r - pr) / Math.abs(pr) * 100).toFixed(0);
+                i1.push(`<li><span class="negative">▽ ${p}%</span> 감소</li>`);
+            } else {
+                const p = ((r - pr) / Math.abs(pr) * 100).toFixed(0);
+                i1.push(`<li><span class="positive">△ ${p}%</span> 증가</li>`);
+            }
+            i1.push(`<li><span class="label">서비스매출:</span> <span class="value">${(sRev/1000000).toFixed(1)}M</span> (${((sRev/r)*100).toFixed(1)}%)</li>`);
+            i1.push(`<li><span class="label">순이익:</span> <span class="value">${(ni/1000000).toFixed(1)}M</span> (${pRate.toFixed(1)}%)</li>`);
+            
+            document.getElementById('insight-current').innerHTML = i1.join('');
+
+            let i2 = [];
+            i2.push(`<li><span class="label">판관비:</span> <span class="value">${(s/1000000).toFixed(1)}M</span> (${sRate.toFixed(1)}%)</li>`);
+            if (sRate > 60) i2.push(`<li><span class="negative">높음: 개선 필요</span></li>`);
+            if (s > ps) {
+                const p = ((s - ps) / Math.abs(ps) * 100).toFixed(0);
+                i2.push(`<li><span class="negative">▲ ${p}%</span> 증가</li>`);
+            }
+            document.getElementById('insight-cost-breakdown').innerHTML = i2.join('');
+
+            let i3 = [];
+            const ca = accountDetailData[selectedMonth] || {};
+            const pa = accountDetailData[getPriorMonth(selectedMonth)] || {};
+            const sr = Object.entries(ca).sort((a, b) => b[1].amount - a[1].amount).slice(0, 3);
+            
+            for (const [n, d] of sr) {
+                const pAmt = pa[n]?.amount || 0;
+                const ch = d.amount - pAmt;
+                i3.push(`<li><strong>${n}</strong></li>`);
+                if (ch > 0) i3.push(`<li><span class="negative">▲ ${(Math.abs(ch)/1000000).toFixed(1)}M</span></li>`);
+                else if (ch < 0) i3.push(`<li><span class="positive">▼ ${(Math.abs(ch)/1000000).toFixed(1)}M</span></li>`);
+            }
+            document.getElementById('insight-cost-change').innerHTML = i3.join('') || '<li>데이터 없음</li>';
+
+            let i4 = [];
+            if (r < pr) {
+                i4.push(`<li><strong class="negative">Priority 1: 매출 회복</strong></li>`);
+                i4.push(`<li>- 거래처 재계약 추진</li>`);
+            }
+            if (s > ps) {
+                i4.push(`<li><strong class="negative">Priority 2: 비용 개선</strong></li>`);
+                i4.push(`<li>- 고정비 구조 재검토</li>`);
+            }
+            document.getElementById('insight-strategy').innerHTML = i4.join('');
+
+            let i5 = [];
+            i5.push(`<li><span class="label">현재 손익분기점:</span> <span class="value">${(be/1000000).toFixed(1)}M</span></li>`);
+            
+            if (gap > 0) {
+                const p = (gap / r * 100).toFixed(1);
+                i5.push(`<li><span class="negative">필요 매출:</span> <span class="value">+${p}%</span></li>`);
+            } else {
+                i5.push(`<li><span class="positive">✓ 손익분기점 달성</span></li>`);
+            }
+            document.getElementById('insight-breakeven').innerHTML = i5.join('');
+
+            let i6 = [];
+            i6.push(`<li><span class="label">이익률:</span> ${pRate.toFixed(1)}% (목표: 10-15%)</li>`);
+            i6.push(`<li><span class="label">판관비율:</span> ${sRate.toFixed(1)}% (목표: 20-30%)</li>`);
+            i6.push(`<li><span class="label">YTD 순이익:</span> ${((y.revenue - y.cogs - y.sga)/1000000).toFixed(1)}M</li>`);
+            document.getElementById('insight-decision').innerHTML = i6.join('');
+        }
+
+        // ===============================================
+        // GitHub에서 자동으로 CSV 파일을 로드하는 함수
+        // ===============================================
+        async function loadDataFromGitHub() {
+            try {
+                document.getElementById('status').textContent = '데이터 로드 중...';
+                
+                // GitHub의 raw CSV 파일 URL
+                const csvUrl = 'https://raw.githubusercontent.com/hyunji-beep/EN_Dashboard/main/data/계정별원장.csv';
+                
+                const response = await fetch(csvUrl);
+                if (!response.ok) {
+                    document.getElementById('status').textContent = '데이터 로드 실패';
+                    console.error('GitHub에서 CSV 파일을 불러오지 못했습니다:', response.status);
+                    return;
+                }
+                
+                const csvText = await response.text();
+                
+                // CSV 파싱 - handleCSVUpload 함수와 같은 로직
+                parseAndProcessCSV(csvText);
+                
+                document.getElementById('status').textContent = 'GitHub 데이터 로드 완료';
+                
+            } catch (error) {
+                document.getElementById('status').textContent = '데이터 로드 실패';
+                console.error('GitHub 데이터 로드 중 오류 발생:', error);
+            }
+        }
+
+        // CSV를 파싱하고 처리하는 함수
+        function parseAndProcessCSV(csvText) {
+            try {
+                const rows = csvText.trim().split('\n');
+                if (rows.length < 2) {
+                    console.error('CSV 파일이 비어있습니다');
+                    return;
+                }
+                
+                const headers = rows[0].split(',').map(h => h.trim());
+                const data = [];
+                
+                for (let i = 1; i < rows.length; i++) {
+                    if (rows[i].trim() === '') continue;
+                    
+                    const values = rows[i].split(',').map(v => v.trim());
+                    const row = {};
+                    
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                    });
+                    
+                    data.push(row);
+                }
+                
+                // processAccountData 함수 호출 (기존 데이터 처리 함수)
+                processAccountData(data);
+                
+            } catch (error) {
+                console.error('CSV 파싱 중 오류:', error);
+                document.getElementById('status').textContent = 'CSV 형식 오류';
+            }
+        }
+
+        // 페이지 로드 시 자동으로 GitHub 데이터 로드
+        window.addEventListener('load', function() {
+            loadDataFromGitHub();
+        });
+        }
+    </script>
+</body>
+</html>
